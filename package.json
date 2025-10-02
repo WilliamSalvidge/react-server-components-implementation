@@ -1,0 +1,17 @@
+{
+  "type": "module",
+  "scripts": {
+    "ssr-server": "node server-ssr.js",
+    "rsc-server": "node --import ./loaders/register-loader.js --conditions react-server server-rsc.js",
+    "build": "./node_modules/.bin/webpack -c webpack.config.js"
+  },
+  "devDependencies": {
+    "webpack": "^5.101.3",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-server-dom-webpack": "^19.1.1"
+  }
+}
