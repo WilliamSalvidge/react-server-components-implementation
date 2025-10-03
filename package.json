@@ -6,6 +6,7 @@
     "build": "./node_modules/.bin/webpack -c webpack.config.js"
   },
   "devDependencies": {
+    "@mdx-js/mdx": "^3.1.1",
     "webpack": "^5.101.3",
     "webpack-cli": "^6.0.1"
   },
