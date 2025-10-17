@@ -1,19 +1,9 @@
 import { createFromReadableStream, createFromFetch } from 'react-server-dom-webpack/client.browser';
 import { hydrateRoot } from 'react-dom/client';
-
-// Get the inlined payload
-const rscPayload = window.__RSC_PAYLOAD__;
-
-// Convert to a ReadableStream for the React client
-const stream = new ReadableStream({
-  start(controller) {
-    controller.enqueue(new TextEncoder().encode(rscPayload));
-    controller.close();
-  }
-});
+import { rscStream } from 'rsc-html-stream/client';
 
 // Create the React tree from the stream
-const roots = await createFromReadableStream(stream);
+const roots = await createFromReadableStream(rscStream);
 
 // Hydrate
 const root = hydrateRoot(document, roots);
