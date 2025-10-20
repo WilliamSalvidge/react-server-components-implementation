@@ -1,12 +1,21 @@
 import http from 'node:http';
-import { Readable, PassThrough } from 'node:stream';
+import { PassThrough, Readable } from 'node:stream';
 import { renderToPipeableStream } from 'react-dom/server';
 import pkg from 'react-server-dom-webpack/client';
 const { createFromNodeStream } = pkg;
 import fs from 'node:fs/promises';
+import { injectRSCPayload } from 'rsc-html-stream/server'
 
-const MANIFEST = await fs.readFile('./dist/react-ssr-manifest.json' , 'utf8')
-const MODULE_MAP = JSON.parse(MANIFEST);
+const SERVER_MANIFEST = await fs.readFile('./dist/react-ssr-manifest.json' , 'utf8')
+const SERVER_MODULE_MAP = JSON.parse(SERVER_MANIFEST);
+
+// New versions of node have access to WebStreams so we should be able to use
+// createFromReadableStream via react-server-dom-webpack/client but it doesn't seem to have the export
+// switching to client.edge
+// createFromReadableStream needs below - why don't they have the same API!
+// const OPTS = { serverConsumerManifest: SERVER_MODULE_MAP }
+// createFromNodeStream needs below
+const OPTS = SERVER_MODULE_MAP;
 
 const SSRServer = new http.Server();
 
@@ -22,43 +31,28 @@ SSRServer.on('request', async (req, res) => {
   if (/rsc$/.test(req.url)) {
     const url = new URL(req.url, 'http://localhost');
     const rscResponse = await fetch(`http://localhost:7676${url.pathname}`); //RSC server
-    const rscResText = await rscResponse.text() 
-    // get response but don't turn it into html just pass it on to the FE
-    console.log(rscResText);
-    return res.end(rscResText);
+    return rscResponse.body.pipeTo(res);
   }
 
   // Request does not end in .ico, .js or ?rsc
   const rscResponse = await fetch(`http://localhost:7676${req.url}`); // request to RSC server
-  const nodeStream = Readable.fromWeb(rscResponse.body);
-
-  let rscPayload = '';
-  const modStream = nodeStream.pipe(new PassThrough({
-    transform(chunk, _encoding, callback) {
-      console.log(chunk.toString())
-      rscPayload += chunk.toString();
-      callback(null, chunk); // Pass through unchanged
-    }
-  }));
+  
+  const [rsc1, rsc2] = rscResponse.body.tee();
 
   // Deserialize RSC payload into React elements (runs on SSR server)
-  const root = createFromNodeStream(modStream, MODULE_MAP);
+  // const root = createFromReadableStream(rsc1, OPTS);
+  const root = createFromNodeStream(Readable.fromWeb(rsc1), OPTS);
 
   // Now render that React tree to HTML
-  const { pipe } = renderToPipeableStream(root, {
-    onShellReady() {
-      console.log('yarp')
-      pipe(res);
-    },
-    onAllReady() {
-      console.log('yep')
-      // Inject the RSC payload script after React finishes
-      res.write(`<script>window.__RSC_PAYLOAD__=${JSON.stringify(rscPayload)}</script>`);
-      res.write('<script src="/bundle.js"></script>');
-      res.end();
-    }
-  })
-  return;
+  const { pipe } = renderToPipeableStream(root, { bootstrapModules: ["bundle.js"] });
+
+  let webReadable = Readable.toWeb(pipe(new PassThrough()));
+
+  // let responseStream = htmlStream;
+  webReadable = webReadable.pipeThrough(injectRSCPayload(rsc2));
+  // const nodeStream = Readable.fromWeb(responseStream);
+  // nodeStream.pipe(res);
+  return Readable.fromWeb(webReadable).pipe(res);
 })
 
 SSRServer.listen(5454, () => console.log('listening on 5454'));
