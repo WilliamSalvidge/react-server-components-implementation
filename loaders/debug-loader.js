@@ -1,4 +1,3 @@
-// debug-loader.js
 export async function load(url, context, nextLoad) {
   const result = await nextLoad(url, context);
   console.log('Loading:', url);

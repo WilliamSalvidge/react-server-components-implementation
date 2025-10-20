@@ -1,7 +1,5 @@
-// buffer-to-string-loader.js
-
 export async function load(url, context, nextLoad) {
-  console.log('buf-to-string loader')
+  console.log('buffer-to-string loader')
   const response = await nextLoad(url, context); 
   
   if (response.format === 'module' && response.source instanceof Buffer) {
