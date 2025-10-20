@@ -47,9 +47,11 @@ SSRServer.on('request', async (req, res) => {
   // Now render that React tree to HTML
   const { pipe } = renderToPipeableStream(root, {
     onShellReady() {
+      console.log('yarp')
       pipe(res);
     },
     onAllReady() {
+      console.log('yep')
       // Inject the RSC payload script after React finishes
       res.write(`<script>window.__RSC_PAYLOAD__=${JSON.stringify(rscPayload)}</script>`);
       res.write('<script src="/bundle.js"></script>');

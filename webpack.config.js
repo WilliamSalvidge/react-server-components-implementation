@@ -7,6 +7,14 @@ export default {
     path: `${import.meta.dirname}/dist`,
     filename: 'bundle.js',
   },
+  module: {
+    rules: [
+      {
+        test: /.jsx$/,
+        use: 'babel-loader'
+      }
+    ]
+  },
   plugins: [
     new ReactServerWebpackPlugin({ isServer: false })
   ]

@@ -1,17 +1,16 @@
 // buffer-to-string-loader.js
+
 export async function load(url, context, nextLoad) {
-  const result = await nextLoad(url, context);
+  console.log('buf-to-string loader')
+  const response = await nextLoad(url, context); 
   
-  // Only convert to string for files in the web directory
-  if (result.format === 'module') { 
-      // && 
-      //result.source instanceof Buffer && 
-      // url.includes('/web/')) {
+  if (response.format === 'module' && response.source instanceof Buffer) {
     return {
-      ...result,
-      source: result.source.toString('utf-8')
-    };
+      format: 'module',
+      source: response.source.toString(),
+      shortCircuit: true
+    }
   }
   
-  return result;
+  return nextLoad(url, context);
 }

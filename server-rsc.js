@@ -3,8 +3,8 @@ import React from 'react';
 import pkg from 'react-server-dom-webpack/server';
 const { renderToPipeableStream } = pkg;
 import fs from 'node:fs/promises';
-import AppEarth from './src/appEarth.js';
-import AppSun from './src/appSun.js';
+import AppEarth from './src/appEarth.jsx';
+import AppSun from './src/appSun.jsx';
 
 const MANIFEST = await fs.readFile('./dist/react-client-manifest.json' , 'utf8')
 const MODULE_MAP = JSON.parse(MANIFEST);
