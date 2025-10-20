@@ -1,15 +1,21 @@
 import http from 'node:http';
-import { Readable } from 'node:stream';
-import { renderToReadableStream } from 'react-dom/server';
+import { PassThrough, Readable } from 'node:stream';
+import { renderToPipeableStream } from 'react-dom/server';
 import pkg from 'react-server-dom-webpack/client';
-const { createFromReadableStream } = pkg;
+const { createFromNodeStream } = pkg;
 import fs from 'node:fs/promises';
 import { injectRSCPayload } from 'rsc-html-stream/server'
 
 const SERVER_MANIFEST = await fs.readFile('./dist/react-ssr-manifest.json' , 'utf8')
 const SERVER_MODULE_MAP = JSON.parse(SERVER_MANIFEST);
 
-const OPTS = { serverConsumerManifest: SERVER_MODULE_MAP }
+// New versions of node have access to WebStreams so we should be able to use
+// createFromReadableStream via react-server-dom-webpack/client but it doesn't seem to have the export
+// switching to client.edge
+// createFromReadableStream needs below - why don't they have the same API!
+// const OPTS = { serverConsumerManifest: SERVER_MODULE_MAP }
+// createFromNodeStream needs below
+const OPTS = SERVER_MODULE_MAP;
 
 const SSRServer = new http.Server();
 
@@ -34,15 +40,19 @@ SSRServer.on('request', async (req, res) => {
   const [rsc1, rsc2] = rscResponse.body.tee();
 
   // Deserialize RSC payload into React elements (runs on SSR server)
-  const root = createFromReadableStream(rsc1, OPTS);
+  // const root = createFromReadableStream(rsc1, OPTS);
+  const root = createFromNodeStream(Readable.fromWeb(rsc1), OPTS);
 
   // Now render that React tree to HTML
-  const htmlStream = await renderToReadableStream(root, { bootstrapModules: ["bundle.js"] });
-  let responseStream = htmlStream;
-  responseStream = responseStream.pipeThrough(injectRSCPayload(rsc2));
-  const nodeStream = Readable.fromWeb(responseStream);
-  nodeStream.pipe(res);
-  return;
+  const { pipe } = renderToPipeableStream(root, { bootstrapModules: ["bundle.js"] });
+
+  let webReadable = Readable.toWeb(pipe(new PassThrough()));
+
+  // let responseStream = htmlStream;
+  webReadable = webReadable.pipeThrough(injectRSCPayload(rsc2));
+  // const nodeStream = Readable.fromWeb(responseStream);
+  // nodeStream.pipe(res);
+  return Readable.fromWeb(webReadable).pipe(res);
 })
 
 SSRServer.listen(5454, () => console.log('listening on 5454'));
